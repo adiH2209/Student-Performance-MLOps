@@ -14,3 +14,4 @@ data/errors/
 
 database/students.db
 mlartifacts/
+monitoring/predictions.csv
