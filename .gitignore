@@ -13,3 +13,4 @@ data/errors/
 .env
 
 database/students.db
+mlartifacts/

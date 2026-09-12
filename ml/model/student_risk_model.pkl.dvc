@@ -1,0 +1,6 @@
+outs:
+- md5: 4ab0a534604798c3b65b0b26c580a901
+  size: 1060689
+  isexec: true
+  hash: md5
+  path: student_risk_model.pkl
