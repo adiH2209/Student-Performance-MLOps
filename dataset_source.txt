@@ -1,0 +1,38 @@
+DATASET SOURCE INFORMATION
+
+Dataset Name:
+UCI Student Performance Dataset
+
+Source:
+UCI Machine Learning Repository
+
+Dataset Used:
+student-mat.csv
+
+Purpose:
+The dataset is used to analyze student academic performance
+and identify students who may require academic attention.
+
+Dataset Size:
+395 student records
+33 columns
+
+Access:
+The dataset is publicly available from the UCI Machine Learning Repository.
+
+Access Method:
+Download the Student Performance dataset and extract
+student-mat.csv into the project's data folder.
+
+Project Data Path:
+data/student-mat.csv
+
+Data Processing:
+The original dataset is kept as the source data.
+The project creates raw, staging, cleaned and analytical
+data through the automated ETL pipeline.
+
+Important Limitation:
+The dataset does not contain actual attendance percentage
+or assignment-completion data. The available "absences"
+field is therefore used as an academic-risk indicator.

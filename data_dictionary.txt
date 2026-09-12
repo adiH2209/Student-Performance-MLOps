@@ -1,0 +1,90 @@
+STUDENT PERFORMANCE AND DROPOUT-RISK PREDICTION SYSTEM
+DATA DICTIONARY AND VALIDATION RULES
+
+1. DATA DICTIONARY
+
+school
+Meaning: Student's school.
+Type: Categorical
+
+sex
+Meaning: Student's gender.
+Type: Categorical
+
+age
+Meaning: Age of the student.
+Type: Numeric
+
+studytime
+Meaning: Weekly study time.
+Type: Numeric
+
+failures
+Meaning: Number of previous class failures.
+Type: Numeric
+
+absences
+Meaning: Number of school absences.
+Type: Numeric
+
+G1
+Meaning: First-period grade.
+Type: Numeric
+Valid range: 0 to 20
+
+G2
+Meaning: Second-period grade.
+Type: Numeric
+Valid range: 0 to 20
+
+G3
+Meaning: Final grade.
+Type: Numeric
+Valid range: 0 to 20
+
+average_marks
+Meaning: Average of G1, G2 and G3.
+Type: Numeric
+Calculation: (G1 + G2 + G3) / 3
+
+risk_level
+Meaning: Academic risk indicator.
+Type: Categorical
+Values: High, Medium, Low
+
+
+2. DATA VALIDATION RULES
+
+1. Check for missing values.
+2. Remove duplicate records.
+3. Check that G1, G2 and G3 are between 0 and 20.
+4. Invalid mark records are stored in the rejected-record/error log.
+5. Invalid mark records are removed from the cleaned dataset.
+6. Calculate average marks from G1, G2 and G3.
+7. Assign an academic risk level using final marks and absences.
+8. Save the validated data as the cleaned dataset.
+
+
+3. RISK LEVEL RULES
+
+High Risk:
+G3 < 10 OR absences > 15
+
+Medium Risk:
+G3 < 14 OR absences > 10
+
+Low Risk:
+All other students
+
+
+4. IMPORTANT DATASET LIMITATION
+
+The selected UCI Student Performance dataset does not contain
+actual attendance percentage or assignment completion data.
+
+Therefore, the project uses the available "absences" field as an
+academic-risk indicator rather than claiming it is an attendance
+percentage.
+
+The risk_level is an academic-risk indicator and is not a confirmed
+dropout prediction.
