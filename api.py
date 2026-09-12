@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
 import pandas as pd
-
+from monitoring.monitor import log_prediction
 app = FastAPI(title="Student Risk Prediction API")
 
 model = joblib.load("ml/model/student_risk_model.pkl")
@@ -35,6 +35,7 @@ def predict(data: StudentData):
 
     prediction = model.predict(input_data)[0]
 
+    log_prediction(data.model_dump(), str(prediction))
     return {
         "predicted_risk": str(prediction)
     }

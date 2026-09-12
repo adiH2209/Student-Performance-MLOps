@@ -3,6 +3,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY api.py .
+COPY monitoring monitoring
 COPY ml/model/student_risk_model.pkl ml/model/student_risk_model.pkl
 
 RUN pip install --no-cache-dir fastapi uvicorn pandas scikit-learn joblib
