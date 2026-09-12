@@ -1,4 +1,5 @@
 import pandas as pd
+import joblib
 import mlflow
 import mlflow.sklearn
 import mlflow.xgboost
@@ -95,6 +96,9 @@ for name, model in models.items():
             mlflow.xgboost.log_model(model, name="student_risk_model")
         else:
             mlflow.sklearn.log_model(model, name="student_risk_model")
+        if name == "XGBoost":
+            joblib.dump(model, "ml/model/student_risk_model.pkl")
+            print("XGBoost saved as final deployed model.")
 
         print("\n" + name)
         print("----------------------")

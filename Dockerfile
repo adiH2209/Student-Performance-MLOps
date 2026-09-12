@@ -6,7 +6,7 @@ COPY api.py .
 COPY monitoring monitoring
 COPY ml/model/student_risk_model.pkl ml/model/student_risk_model.pkl
 
-RUN pip install --no-cache-dir fastapi uvicorn pandas scikit-learn joblib
+RUN pip install --no-cache-dir fastapi uvicorn pandas scikit-learn joblib xgboost
 
 EXPOSE 8000
 

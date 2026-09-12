@@ -1,11 +1,19 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+import time
 import joblib
 import pandas as pd
 from monitoring.monitor import log_prediction
+
 app = FastAPI(title="Student Risk Prediction API")
 
 model = joblib.load("ml/model/student_risk_model.pkl")
+
+risk_mapping = {
+    0: "High",
+    1: "Low",
+    2: "Medium"
+}
 
 
 class StudentData(BaseModel):
@@ -24,18 +32,42 @@ def home():
 
 @app.post("/predict")
 def predict(data: StudentData):
-    input_data = pd.DataFrame([{
-        "age": data.age,
-        "studytime": data.studytime,
-        "failures": data.failures,
-        "absences": data.absences,
-        "G1": data.G1,
-        "G2": data.G2
-    }])
 
-    prediction = model.predict(input_data)[0]
+    start_time = time.time()
 
-    log_prediction(data.model_dump(), str(prediction))
-    return {
-        "predicted_risk": str(prediction)
-    }
+    try:
+        input_data = pd.DataFrame([{
+            "age": data.age,
+            "studytime": data.studytime,
+            "failures": data.failures,
+            "absences": data.absences,
+            "G1": data.G1,
+            "G2": data.G2
+        }])
+
+        prediction = model.predict(input_data)[0]
+
+        predicted_risk = risk_mapping[int(prediction)]
+
+        log_prediction(
+            data.model_dump(),
+            predicted_risk
+        )
+
+        latency = round((time.time() - start_time) * 1000, 2)
+
+        return {
+            "predicted_risk": predicted_risk,
+            "latency_ms": latency,
+            "status": "success"
+        }
+
+    except Exception as e:
+
+        latency = round((time.time() - start_time) * 1000, 2)
+
+        return {
+            "status": "failed",
+            "error": str(e),
+            "latency_ms": latency
+        }
