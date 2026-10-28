@@ -1,3 +1,12 @@
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-blue?logo=postgresql)
+![Apache Airflow](https://img.shields.io/badge/Pipeline-Apache%20Airflow-017CEE?logo=apacheairflow)
+![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-red?logo=streamlit)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi)
+![MLflow](https://img.shields.io/badge/Tracking-MLflow-blue)
+![DVC](https://img.shields.io/badge/Versioning-DVC-945DD6)
+![Docker](https://img.shields.io/badge/Deployment-Docker-2496ED?logo=docker)
+
 # 🎓 Student Performance and Dropout-Risk Prediction System
 
 An end-to-end Data Engineering and MLOps project that analyzes student performance and classifies students into academic-risk categories using machine learning.
