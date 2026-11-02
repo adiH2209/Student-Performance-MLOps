@@ -4,31 +4,45 @@ A Python project that processes the UCI Student Performance Mathematics dataset,
 
 > **Target definition:** `risk_level` is derived from final grade (`G3`) and absences using the thresholds below. The UCI dataset does not provide a verified future dropout outcome. This is academic-risk classification, not a validated student-dropout prediction system.
 
+## Part 1 — Data Engineering
 
-Part 1 — Data Engineering
-Reproducible data ingestion from CSV source files with metadata logging
-Multi-layer data architecture: raw, staging, cleaned, rejected, analytical
-Data quality validation with 7 validation rules and a validation report
-Rejected records tracking with rejection reasons and timestamps
-Feature engineering with academic average, attendance percentage, pass/fail
-Rule-based risk categorization (Low / Medium / High Risk)
-PostgreSQL data warehouse with star-schema-inspired design
-Apache Airflow DAG for automated pipeline orchestration
-Interactive Streamlit dashboard with 5+ views and sidebar filters
-Comprehensive documentation including data dictionary and architecture
-Part 2 — MLOps
-ML risk prediction target: binary classification (at_risk vs low_risk)
-Three models trained and evaluated: Logistic Regression (baseline), Random Forest, XGBoost (advanced)
-Reproducible train/validation/test split (60/20/20) with stratification and no data leakage
-MLflow tracking: experiments, parameters, metrics, and artifacts logged
-Model registry: best model (XGBoost) registered as production model
-Git-based dataset/model versioning: metadata files with SHA256 hashes, feature names, split info, and metrics (DVC not used — assignment allows Git-based metadata as an alternative)
-FastAPI prediction API: single and batch prediction endpoints with Pydantic input validation
-Docker containerization: Dockerfile for the FastAPI API
-Streamlit ML integration: interactive prediction panel added to the existing dashboard without modifying Part 1 views
-Monitoring: input quality, feature drift (numerical + categorical), class distribution, model performance, latency, and failure tracking
-Airflow Part 2 tasks: ML training, training profile, and monitoring tasks added to the existing DAG with correct dependencies
-Model lifecycle and retraining criteria documented
+- **Reproducible data ingestion** from CSV source files with metadata logging
+- **Multi-layer data architecture:** raw, staging, cleaned, rejected, analytical
+- **Data quality validation** with 7 validation rules and a validation report
+- **Rejected records tracking** with rejection reasons and timestamps
+- **Feature engineering** with academic average, attendance percentage, pass/fail
+- **Rule-based risk categorization** (Low / Medium / High Risk)
+- **PostgreSQL data warehouse** with star-schema-inspired design
+- **Apache Airflow DAG** for automated pipeline orchestration
+- **Interactive Streamlit dashboard** with 5+ views and sidebar filters
+- **Comprehensive documentation** including data dictionary and architecture
+
+## Part 2 — MLOps
+
+- **ML risk prediction target:** binary classification (at_risk vs low_risk)
+- **Three models trained and evaluated:** Logistic Regression (baseline), Random Forest, XGBoost (advanced)
+- **Reproducible train/validation/test split** (60/20/20) with stratification and no data leakage
+- **MLflow tracking:** experiments, parameters, metrics, and artifacts logged
+- **Model registry:** best model (XGBoost) registered as production model
+- **Git-based dataset/model versioning:** metadata files with SHA256 hashes, feature names, split info, and metrics (DVC not used — assignment allows Git-based metadata as an alternative)
+- **FastAPI prediction API:** single and batch prediction endpoints with Pydantic input validation
+- **Docker containerization:** Dockerfile for the FastAPI API
+- **Streamlit ML integration:** interactive prediction panel added to the existing dashboard without modifying Part 1 views
+- **Monitoring:** input quality, feature drift (numerical + categorical), class distribution, model performance, latency, and failure tracking
+- **Airflow Part 2 tasks:** ML training, training profile, and monitoring tasks added to the existing DAG with correct dependencies
+- **Model lifecycle and retraining criteria** documented
+
+## Model Performance
+
+Models were evaluated using an 80:20 train-test split.
+
+| Model | Accuracy | Weighted Precision | Weighted Recall | Weighted F1-Score |
+|---|---:|---:|---:|---:|
+| Logistic Regression | 78.48% | 78.96% | 78.48% | 78.64% |
+| Random Forest | 86.08% | 86.56% | 86.08% | 86.16% |
+| **XGBoost** | **87.34%** | **87.43%** | **87.34%** | **87.36%** |
+
+**Best Performing Model:** XGBoost achieved the highest accuracy of 87.34% and was selected as the final model for student academic risk prediction.
 
 ## Technology stack
 
@@ -216,44 +230,6 @@ docker compose --profile app up --build -d
 
 The API requires `ml/model/student_risk_model.pkl`. Train it before starting the API container. Change the example passwords and Airflow secret key before using this beyond a local demonstration. Never commit real credentials or `.env` files.
 
-Completion Status
-Component	Status
-Part 1	
-Dataset source documentation	Complete
-Reproducible ingestion	Complete
-Raw data layer	Complete
-Ingestion metadata	Complete
-Staging layer	Complete
-Validation rules	Complete
-Validation report	Complete
-Rejected records	Complete
-Cleaned layer	Complete
-Analytical layer	Complete
-Rule-based risk analysis	Complete
-PostgreSQL database	Complete
-Analytical data mart	Complete
-Apache Airflow DAG	Complete
-Streamlit dashboard	Complete
-5+ dashboard indicators	Complete
-Architecture documentation	Complete
-Data dictionary	Complete
-Part 2	
-Risk prediction target	Complete
-Logistic Regression (baseline)	Complete
-Random Forest (advanced)	Complete
-XGBoost (advanced)	Complete
-Train/val/test split (no leakage)	Complete
-MLflow tracking	Complete
-Model registry	Complete
-Git-based dataset/model metadata	Complete
-FastAPI serving	Complete
-Docker containerization	Complete
-Streamlit ML integration	Complete
-Monitoring (drift, quality, latency, failures)	Complete
-Airflow Part 2 tasks	Complete
-Model lifecycle + retraining criteria	Complete
-Documentation + reproducibility	Complete
-Part 1 and Part 2 are complete.
 
 
 
