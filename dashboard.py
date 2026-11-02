@@ -1,29 +1,26 @@
 from pathlib import Path
-import sqlite3
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import os
+from sqlalchemy import create_engine
 
 ROOT = Path(__file__).resolve().parent
-DB_FILE = ROOT / "database" / "students.db"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://student:studentpass@localhost:5432/student_performance")
+ENGINE = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 st.set_page_config(page_title="Student Performance Dashboard", page_icon="🎓", layout="wide")
 st.title("🎓 Student Performance & Academic Risk Dashboard")
 st.caption("Academic-risk indicators are rule-derived and are not verified dropout outcomes.")
 
 @st.cache_data
-def load_students(db_path, modified_time):
-    with sqlite3.connect(db_path) as connection:
-        return pd.read_sql_query("SELECT * FROM students", connection)
-
-if not DB_FILE.exists():
-    st.error("Database not found. Run `python scripts/pipeline.py` from the project root first.")
-    st.stop()
+def load_students():
+    return pd.read_sql_query("SELECT * FROM students", ENGINE)
 
 try:
-    df = load_students(str(DB_FILE), DB_FILE.stat().st_mtime)
+    df = load_students()
 except Exception as exc:
-    st.error(f"Could not read the SQLite database: {exc}")
+    st.error(f"Could not read the PostgreSQL database: {exc}")
     st.stop()
 
 if df.empty:

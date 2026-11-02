@@ -1,353 +1,183 @@
 # Student Performance & Academic-Risk Classification
 
-A Python-based data and machine-learning project that processes the UCI Student Performance Mathematics dataset, derives academic-risk categories, compares classification models, tracks experiments with MLflow, serves predictions through FastAPI, and displays analysis in Streamlit.
+A Python project that processes the UCI Student Performance Mathematics dataset, derives project-defined academic-risk categories, compares classification models, tracks experiments with MLflow, stores processed data in PostgreSQL, and provides a Streamlit dashboard and FastAPI prediction service. Apache Airflow can orchestrate the ETL workflow, Docker Compose runs the services, and DVC manages dataset/model artifacts.
 
-> **Target definition:** `risk_level` is derived from final grade (`G3`) and absences using project-defined thresholds. The UCI dataset does not provide a verified future dropout outcome. This repository therefore demonstrates **academic-risk classification**, not a validated student-dropout prediction system.
-
-## What the repository currently implements
-
-- CSV ingestion and a repeatable Python ETL runner.
-- Data validation, duplicate removal and rejected-record output.
-- Derived `average_marks` and rule-based `risk_level`.
-- SQLite storage and an analytical summary table.
-- Logistic Regression, Random Forest and XGBoost comparison.
-- MLflow logging for model parameters and evaluation metrics.
-- A saved XGBoost model bundle that includes its label encoder and feature list.
-- FastAPI endpoints for health checks and predictions.
-- A Streamlit dashboard backed by the same SQLite database used by the ETL scripts.
-- Prediction logging and basic feature-distribution monitoring.
-- DVC pointer files for the source dataset and model artifact.
-- A Dockerfile for the FastAPI service.
-
-## Architecture
-
-```text
-UCI student-mat.csv
-       |
-       v
-scripts/ingest.py
-       |
-       v
-data/raw/student_raw.csv
-       |
-       v
-data/staging/student_staging.csv
-       |
-       v
-scripts/clean.py ------> data/errors/rejected_records.csv
-       |
-       v
-data/cleaned/student_cleaned.csv
-       |
-       +--------------------------+
-       |                          |
-       v                          v
-SQLite database              ML model comparison
-database/students.db         Logistic Regression
-       |                      Random Forest
-       v                      XGBoost
-student_performance_summary       |
-                                  v
-                            MLflow tracking
-                                  |
-                                  v
-                       saved model + label encoder
-                                  |
-                                  v
-                            FastAPI /predict
-                                  |
-                                  v
-                      monitoring/predictions.csv
-                                  |
-                                  v
-                           monitor.py
-
-Streamlit dashboard ---> database/students.db
-```
+> **Target definition:** `risk_level` is derived from final grade (`G3`) and absences using the thresholds below. The UCI dataset does not provide a verified future dropout outcome. This is academic-risk classification, not a validated student-dropout prediction system.
 
 ## Technology stack
 
 | Layer | Tools |
 |---|---|
-| Language | Python 3.10+ |
+| Language | Python 3.11 |
 | Data processing | Pandas, NumPy |
 | Machine learning | Scikit-learn, XGBoost |
+| Algorithms | Logistic Regression, Random Forest, XGBoost |
 | Experiment tracking | MLflow |
-| Database | SQLite |
+| Database | PostgreSQL |
 | Dashboard | Streamlit, Plotly |
 | API | FastAPI, Uvicorn, Pydantic |
 | Monitoring | Pandas, SciPy |
+| Workflow orchestration | Apache Airflow |
 | Data/model versioning | DVC |
-| Containerization | Docker |
+| Containerization | Docker, Docker Compose |
 | Version control | Git, GitHub |
 
-**Orchestration note:** `scripts/pipeline.py` runs the ETL steps using Python's `subprocess` module. There is no Apache Airflow DAG in this repository snapshot, so Airflow is not listed as an implemented component.
-
-## Repository structure
+## Architecture
 
 ```text
-Student-Performance-MLOps/
-├── .dvc/                       # DVC configuration metadata
-├── data/
-│   ├── student-mat.csv.dvc     # DVC pointer for source dataset
-│   ├── raw/                    # Generated raw CSV (ignored by Git)
-│   ├── staging/                # Generated staging CSV (ignored by Git)
-│   ├── cleaned/
-│   │   └── student_cleaned.csv # Processed dataset
-│   └── errors/                 # Rejected records (ignored by Git)
-├── database/
-│   └── students.db             # Generated SQLite database (ignored by Git)
-├── ml/
-│   ├── model/
-│   │   └── student_risk_model.pkl.dvc
-│   ├── model_utils.py
-│   ├── compare_models.py
-│   ├── train_model.py
-│   ├── train_mlflow.py
-│   └── retrain.py
-├── monitoring/
-│   └── monitor.py
-├── scripts/
-│   ├── ingest.py
-│   ├── clean.py
-│   ├── load_database.py
-│   ├── create_analytics.py
-│   └── pipeline.py
-├── tests/
-├── api.py
-├── dashboard.py
-├── Dockerfile
+UCI student-mat.csv --DVC--> scripts/ingest.py -> stage.py -> clean.py
+                                                    |
+                                                    v
+                                           cleaned CSV dataset
+                                                    |
+                                  +-----------------+----------------+
+                                  |                                  |
+                                  v                                  v
+                         PostgreSQL database                ML comparison
+                                  |                      Logistic Regression
+                                  |                      Random Forest
+                                  |                      XGBoost
+                                  |                                  |
+                                  v                                  v
+                         Streamlit dashboard                  MLflow tracking
+                                                                     |
+                                                                     v
+                                                         model artifact (DVC)
+                                                                     |
+                                                                     v
+                                                               FastAPI
+
+Airflow DAG orchestrates ingest -> stage -> clean -> PostgreSQL load -> analytics.
+Docker Compose runs PostgreSQL, Airflow, API and dashboard services.
+```
+
+## Repository layout
+
+```text
+├── dags/student_performance_pipeline.py  # Airflow ETL DAG
+├── data/                                  # Dataset and generated ETL files
+├── dvc-storage/                           # Local DVC remote (ignored; populate with dvc push)
+├── ml/                                    # Training, comparison and model utilities
+├── monitoring/                            # Prediction and feature monitoring
+├── scripts/                               # Ingest, stage, clean, PostgreSQL load, analytics
+├── tests/                                 # Unit tests
+├── api.py                                 # FastAPI prediction API
+├── dashboard.py                           # Streamlit dashboard
+├── Dockerfile                             # API/dashboard image
+├── Dockerfile.airflow                     # Airflow image with ETL dependencies
+├── docker-compose.yml                     # PostgreSQL + Airflow + optional app services
 ├── requirements.txt
-├── .env.example
-├── data_dictionary.txt
-├── dataset_source.txt
 └── README.md
 ```
 
-## Dataset
+## Dataset and DVC
 
-- **Source:** UCI Machine Learning Repository — Student Performance dataset.
-- **File used:** `student-mat.csv` (Mathematics subject).
-- **Original dataset size:** 395 records and 33 attributes.
-- **Source format:** semicolon-separated CSV.
-- **Expected local path:** `data/student-mat.csv`.
+The project uses the UCI Student Performance Mathematics file `student-mat.csv` (395 records, 33 attributes). Place the file at `data/student-mat.csv`.
 
-The source dataset is not bundled as a normal CSV in this repository snapshot; it is represented by a DVC pointer. Obtain it through the configured DVC remote if you have access, or download the UCI dataset and place `student-mat.csv` in the `data/` directory.
+DVC is configured with a **local remote** at `dvc-storage/` so the workflow can be demonstrated without inventing cloud credentials. The `.dvc` pointer file alone does not contain the dataset. After placing the dataset locally, track and upload it to the local DVC remote:
 
-## Data processing
+```bash
+dvc add data/student-mat.csv
+dvc push
+```
 
-The ETL runner performs these operations in order:
+For another machine, share/copy the `dvc-storage/` directory or configure a shared remote (S3, Azure, SSH, etc.) and commit the updated `.dvc/config` appropriately. Do not commit credentials.
 
-1. **Ingestion:** reads `data/student-mat.csv` and writes `data/raw/student_raw.csv`.
-2. **Staging:** copies the raw CSV to `data/staging/student_staging.csv`.
-3. **Cleaning:** removes duplicate rows, validates numeric grade/absence fields, and writes invalid rows to `data/errors/rejected_records.csv`.
-4. **Feature creation:** calculates `average_marks = (G1 + G2 + G3) / 3`.
-5. **Risk assignment:** assigns High, Medium or Low using the thresholds below.
-6. **Database load:** replaces the SQLite `students` table with the cleaned records.
-7. **Analytics:** creates/replaces the `student_performance_summary` table.
+After training creates `ml/model/student_risk_model.pkl`, track it similarly:
 
-### Academic-risk rules
+```bash
+dvc add ml/model/student_risk_model.pkl
+dvc push
+```
+
+## Academic-risk rules
 
 | Category | Rule |
 |---|---|
-| High | `G3 < 10` **OR** `absences > 15` |
-| Medium | If not High: `G3 < 14` **OR** `absences > 10` |
+| High | `G3 < 10` OR `absences > 15` |
+| Medium | If not High: `G3 < 14` OR `absences > 10` |
 | Low | All remaining records |
 
-High is evaluated first, then Medium. These are project-defined thresholds, not labels supplied by UCI or validated dropout outcomes.
+These are project-defined labels, not labels supplied by UCI or independently validated dropout outcomes.
 
-## Machine-learning workflow
+## ML workflow
 
-The model comparison uses these input features:
+Input features: `age`, `studytime`, `failures`, `absences`, `G1`, `G2`. Target: `risk_level`.
 
-`age`, `studytime`, `failures`, `absences`, `G1`, `G2`
+The comparison script trains Logistic Regression (with scaling), Random Forest and XGBoost using an 80/20 stratified split (`random_state=42`). MLflow records model parameters and evaluation metrics. Re-run training to obtain current scores; previously reported README accuracies are historical results and are not guaranteed to reproduce exactly.
 
-Target: `risk_level`.
+## Local setup
 
-The data is split using an 80/20 train-test split with `random_state=42` and stratification. The compared classifiers are:
-
-- Logistic Regression (with StandardScaler).
-- Random Forest (100 trees).
-- XGBoost (100 estimators, max depth 4, learning rate 0.1).
-
-Metrics logged to MLflow include accuracy, weighted precision, weighted recall and weighted F1-score.
-
-The README in the original repository reported the following historical comparison results:
-
-| Model | Previously reported accuracy |
-|---|---:|
-| Logistic Regression | 78.48% |
-| Random Forest | 86.08% |
-| XGBoost | 87.34% |
-
-These values are historical repository-reported results, not guaranteed results for every run. Re-run the comparison to produce current metrics. Since the target is rule-derived, these scores measure agreement with the project's risk rules, not real-world dropout prediction accuracy.
-
-The selected XGBoost artifact is saved as a bundle containing the model, fitted label encoder and feature names. This keeps the API's class decoding aligned with the trained model.
-
-## Setup
-
-### 1. Clone the repository
+1. Install Python 3.11 and PostgreSQL.
+2. Create a database and user, or use the Compose setup below.
+3. Create a virtual environment and install dependencies:
 
 ```bash
-git clone https://github.com/adiH2209/Student-Performance-MLOps.git
-cd Student-Performance-MLOps
-```
-
-### 2. Create and activate a virtual environment
-
-Windows PowerShell:
-
-```powershell
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-Linux / WSL / macOS:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-### 3. Install dependencies
-
-```bash
-python -m pip install --upgrade pip
+python -m venv .venv
+# Windows: .venv\\Scripts\\activate
+# Linux/macOS: source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Add the dataset
+4. Set `DATABASE_URL` (PowerShell example):
 
-Place `student-mat.csv` at:
-
-```text
-data/student-mat.csv
+```powershell
+$env:DATABASE_URL="postgresql+psycopg2://student:studentpass@localhost:5432/student_performance"
 ```
 
-The CSV must be the UCI Mathematics dataset and use semicolon separators. If you use DVC instead, configure the remote and retrieve the tracked data with `dvc pull`.
-
-## Run the project
-
-Run all ETL steps from the repository root:
+5. Put `student-mat.csv` in `data/` and run:
 
 ```bash
 python scripts/pipeline.py
+python ml/compare_models.py
 ```
 
-This creates the raw, staging, cleaned and error CSV files, loads `database/students.db`, and creates the analytical summary table.
-
-### Start the dashboard
+6. Start the dashboard:
 
 ```bash
 streamlit run dashboard.py
 ```
 
-Streamlit prints a local URL, normally `http://localhost:8501`.
-
-### Compare models and track experiments
-
-Start the MLflow tracking server in Terminal 1:
+7. Start the API after the model has been trained:
 
 ```bash
-mlflow server --host 127.0.0.1 --port 5000
+uvicorn api:app --reload
 ```
 
-Run model comparison in Terminal 2:
+## Airflow with Docker Compose
+
+The Compose stack starts a PostgreSQL application database, a separate PostgreSQL Airflow metadata database, and Airflow webserver/scheduler. It does not automatically download the dataset or train the model.
 
 ```bash
-python ml/compare_models.py
+docker compose up airflow-init
+docker compose up -d postgres airflow-db airflow-webserver airflow-scheduler
 ```
 
-Open `http://localhost:5000` to view the experiment. The comparison script saves the XGBoost model bundle to `ml/model/student_risk_model.pkl`.
-
-### Start the prediction API
-
-After training a model:
+Open `http://localhost:8080`. Airflow's default standalone image credentials are not assumed here; create an admin user explicitly if needed:
 
 ```bash
-uvicorn api:app --host 127.0.0.1 --port 8000 --reload
+docker compose run --rm airflow-webserver airflow users create --username admin --password admin --firstname Project --lastname Admin --role Admin --email admin@example.com
 ```
 
-- API root: `http://localhost:8000/`
-- Health check: `http://localhost:8000/health`
-- Interactive API docs: `http://localhost:8000/docs`
+Enable and trigger `student_performance_etl`. The dataset must already exist at `data/student-mat.csv` in the project directory. The DAG runs ingest, staging, cleaning, PostgreSQL load and analytics in order.
 
-Example request body for `POST /predict`:
+## Docker services
 
-```json
-{
-  "age": 18,
-  "studytime": 2,
-  "failures": 0,
-  "absences": 4,
-  "G1": 12,
-  "G2": 13
-}
-```
-
-Example response:
-
-```json
-{
-  "predicted_risk": "Low",
-  "latency_ms": 2.5,
-  "status": "success"
-}
-```
-
-The predicted category and latency will depend on the trained model and the machine running the API.
-
-### Run monitoring
-
-Make a few API predictions first, then run:
+After the dataset is loaded and model artifact is trained, start the optional API and dashboard services:
 
 ```bash
-python monitoring/monitor.py
+docker compose --profile app up --build -d
 ```
 
-The script summarizes reference-data quality, prediction categories, mean logged latency and a two-sample Kolmogorov–Smirnov feature-distribution check. The drift check is a basic statistical signal; it is not a direct measure of model accuracy. Real performance monitoring requires ground-truth outcomes for logged predictions.
+- Dashboard: `http://localhost:8501`
+- API docs: `http://localhost:8000/docs`
+- Airflow: `http://localhost:8080`
 
-## Docker: API service
+The API requires `ml/model/student_risk_model.pkl`. Train it before starting the API container. Change the example passwords and Airflow secret key before using this beyond a local demonstration. Never commit real credentials or `.env` files.
 
-The Dockerfile packages the FastAPI service and its trained model. Train the model before building the image, because the model artifact is generated locally and is not committed as a normal binary file.
+## Notes
 
-```bash
-python ml/compare_models.py
-docker build -t student-academic-risk-api .
-docker run --rm -p 8000:8000 student-academic-risk-api
-```
-
-Then visit `http://localhost:8000/docs`.
-
-The container currently runs the API only. The database, dashboard and MLflow tracking server are not included in this single-container image.
-
-## Configuration and secrets
-
-- Do not commit real passwords, tokens or API keys.
-- Copy `.env.example` to `.env` only if you add environment-based settings.
-- Keep `.env` out of Git.
-- Rotate any credential that was previously committed or shared. Removing it from the latest file does not erase it from Git history.
-
-## Known limitations
-
-1. The risk target is derived from final grade and absences; it is not a verified dropout outcome.
-2. The dataset is small (395 records), so results should be interpreted cautiously.
-3. The included pipeline is a Python script, not an Airflow DAG.
-4. SQLite is used consistently by the ETL scripts and dashboard in this version.
-5. The monitoring script checks feature distributions and prediction logs. It cannot calculate real production accuracy without later ground-truth labels.
-6. The DVC pointer files require access to the corresponding DVC remote to retrieve the exact tracked artifacts.
-7. The model artifact is generated by running the training/comparison script and is not expected to exist in a fresh clone until that step is completed.
-
-## Suggested next steps
-
-- Obtain genuine dropout/retention outcome labels if the goal is actual dropout prediction.
-- Use time-aware validation so model inputs are collected before the outcome.
-- Add automated tests and continuous integration.
-- Configure a shared DVC remote for reproducible data/model retrieval.
-- Add authentication and access controls before using real student records.
-
-## Author
-
-**Aditya Harikumar**
-
-Student project — Data Engineering and MLOps
+- Airflow orchestration is implemented in `dags/student_performance_pipeline.py`; `scripts/pipeline.py` remains a local sequential runner.
+- PostgreSQL is the only application database in this version; SQLite has been removed.
+- DVC uses a local remote by default. It is not a hosted remote until configured by the project owner.
+- Docker Compose is provided for local demonstration; production deployment requires secrets management, persistent backups, and security hardening.

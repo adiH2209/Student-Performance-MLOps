@@ -1,23 +1,19 @@
-from pathlib import Path
-import sqlite3
-import pandas as pd
+from sqlalchemy import text
+from db import get_engine
 
-ROOT = Path(__file__).resolve().parents[1]
-DB_FILE = ROOT / "database" / "students.db"
 COLUMNS = ["school", "age", "absences", "G1", "G2", "G3", "average_marks", "risk_level"]
 
 def main():
-    if not DB_FILE.exists():
-        raise FileNotFoundError("SQLite database not found. Run scripts/load_database.py first.")
-    with sqlite3.connect(DB_FILE) as conn:
-        available = {row[1] for row in conn.execute("PRAGMA table_info(students)")}
-        missing = set(COLUMNS).difference(available)
+    engine = get_engine()
+    with engine.begin() as conn:
+        rows = conn.execute(text("SELECT column_name FROM information_schema.columns WHERE table_name = 'students'")).scalars().all()
+        missing = set(COLUMNS).difference(rows)
         if missing:
             raise ValueError(f"students table is missing columns: {sorted(missing)}")
-        df = pd.read_sql_query(f"SELECT {', '.join(COLUMNS)} FROM students", conn)
-        df.to_sql("student_performance_summary", conn, if_exists="replace", index=False)
-        count = conn.execute("SELECT COUNT(*) FROM student_performance_summary").fetchone()[0]
-    print(f"Created student_performance_summary with {count} records.")
+        conn.execute(text("DROP TABLE IF EXISTS student_performance_summary"))
+        conn.execute(text("CREATE TABLE student_performance_summary AS SELECT school, age, absences, \"G1\", \"G2\", \"G3\", average_marks, risk_level FROM students"))
+        count = conn.execute(text("SELECT COUNT(*) FROM student_performance_summary")).scalar_one()
+    print(f"Created PostgreSQL student_performance_summary with {count} records.")
 
 if __name__ == "__main__":
     main()

@@ -31,3 +31,7 @@ monitoring/predictions.csv
 Thumbs.db
 .vscode/
 .idea/
+
+# Local DVC cache/remote (share separately or configure a hosted remote)
+dvc-storage/*
+!dvc-storage/.gitkeep
