@@ -132,6 +132,21 @@ python scripts/pipeline.py
 python ml/compare_models.py
 ```
 
+
+## Model Performance
+
+The following models were trained and evaluated using an 80:20 train-test split.
+
+| Model | Accuracy | Weighted Precision | Weighted Recall | Weighted F1-Score |
+|---|---:|---:|---:|---:|
+| Logistic Regression | 78.48% | 78.96% | 78.48% | 78.64% |
+| Random Forest | 86.08% | 86.56% | 86.08% | 86.16% |
+| XGBoost | **87.34%** | **87.43%** | **87.34%** | **87.36%** |
+
+### Best Performing Model
+
+XGBoost achieved the highest accuracy of **87.34%**, outperforming Logistic Regression and Random Forest. Therefore, XGBoost is selected as the final model for student academic risk prediction.
+
 6. Start the dashboard:
 
 ```bash
@@ -181,3 +196,6 @@ The API requires `ml/model/student_risk_model.pkl`. Train it before starting the
 - PostgreSQL is the only application database in this version; SQLite has been removed.
 - DVC uses a local remote by default. It is not a hosted remote until configured by the project owner.
 - Docker Compose is provided for local demonstration; production deployment requires secrets management, persistent backups, and security hardening.
+
+
+

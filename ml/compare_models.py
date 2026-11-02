@@ -57,7 +57,11 @@ def main():
                 save_bundle(bundle)
                 print("Saved XGBoost model bundle with its label encoder.")
             else:
-                mlflow.sklearn.log_model(model, name="model")
+                mlflow.sklearn.log_model(
+    model,
+    name="model",
+    skops_trusted_types=["sklearn.tree._tree.Tree"]
+)
             results.append((name, metrics))
     print("\nMODEL COMPARISON")
     for name, metrics in results:
