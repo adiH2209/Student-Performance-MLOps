@@ -1,46 +1,29 @@
 import subprocess
+import sys
 import shutil
-import os
+from pathlib import Path
 
-print("================================")
-print("STUDENT PERFORMANCE ETL PIPELINE")
-print("================================")
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "data"
+RAW_FILE = DATA_DIR / "raw" / "student_raw.csv"
+STAGING_FILE = DATA_DIR / "staging" / "student_staging.csv"
 
-project_folder = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-)
+def run(script):
+    print(f"\n>>> Running {script}", flush=True)
+    subprocess.run([sys.executable, str(ROOT / script)], cwd=ROOT, check=True)
 
-# 1. Data ingestion
-print("\n1. Starting data ingestion...")
-subprocess.run(["python", "scripts/ingest.py"], check=True)
+def main():
+    print("=" * 52)
+    print("STUDENT PERFORMANCE ETL PIPELINE")
+    print("=" * 52)
+    run("scripts/ingest.py")
+    STAGING_FILE.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(RAW_FILE, STAGING_FILE)
+    print(f"Staging copy created: {STAGING_FILE.relative_to(ROOT)}")
+    run("scripts/clean.py")
+    run("scripts/load_database.py")
+    run("scripts/create_analytics.py")
+    print("\nETL pipeline completed successfully.")
 
-# 2. Staging
-print("\n2. Creating staging layer...")
-staging_folder = os.path.join(project_folder, "data", "staging")
-cleaned_file = os.path.join(
-    project_folder, "data", "cleaned", "student_cleaned.csv"
-)
-staging_file = os.path.join(
-    staging_folder, "student_cleaned.csv"
-)
-
-os.makedirs(staging_folder, exist_ok=True)
-shutil.copy2(cleaned_file, staging_file)
-
-print("Staging file created successfully.")
-
-# 3. Data cleaning
-print("\n3. Starting data cleaning...")
-subprocess.run(["python", "scripts/clean.py"], check=True)
-
-# 4. Database loading
-print("\n4. Loading data into database...")
-subprocess.run(["python", "scripts/load_database.py"], check=True)
-
-# 5. Analytical table
-print("\n5. Creating analytical table...")
-subprocess.run(["python", "scripts/create_analytics.py"], check=True)
-
-print("\n================================")
-print("ETL PIPELINE COMPLETED SUCCESSFULLY")
-print("================================")
+if __name__ == "__main__":
+    main()

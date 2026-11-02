@@ -1,31 +1,29 @@
-import pandas as pd
-import os
+import sys
 from datetime import datetime
+from pathlib import Path
+import pandas as pd
 
-# File locations
-input_file = "data/student-mat.csv"
-raw_folder = "data/raw"
+ROOT = Path(__file__).resolve().parents[1]
+SOURCE = ROOT / "data" / "student-mat.csv"
+RAW_DIR = ROOT / "data" / "raw"
+RAW_FILE = RAW_DIR / "student_raw.csv"
 
-# Create raw data folder
-os.makedirs(raw_folder, exist_ok=True)
+def main():
+    if not SOURCE.exists():
+        raise FileNotFoundError(
+            f"Dataset not found: {SOURCE}\n"
+            "Download the UCI Student Performance dataset and place student-mat.csv in data/."
+        )
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    df = pd.read_csv(SOURCE, sep=";")
+    df.to_csv(RAW_FILE, index=False)
+    print("=" * 48)
+    print("STUDENT DATA INGESTION")
+    print("=" * 48)
+    print("Timestamp:", datetime.now().isoformat(timespec="seconds"))
+    print("Source:", SOURCE.relative_to(ROOT))
+    print("Rows:", len(df), "| Columns:", len(df.columns))
+    print("Raw copy:", RAW_FILE.relative_to(ROOT))
 
-# Read the dataset
-df = pd.read_csv(input_file, sep=";")
-
-# Save a raw copy
-raw_file = os.path.join(raw_folder, "student_raw.csv")
-df.to_csv(raw_file, index=False)
-
-# Ingestion information
-print("================================")
-print("STUDENT DATA INGESTION")
-print("================================")
-print("Extraction date:", datetime.now())
-print("Source file:", input_file)
-print("Status: SUCCESS")
-print("Number of rows:", len(df))
-print("Number of columns:", len(df.columns))
-print("Raw copy saved to:", raw_file)
-
-print("\nFirst 5 records:")
-print(df.head())
+if __name__ == "__main__":
+    main()

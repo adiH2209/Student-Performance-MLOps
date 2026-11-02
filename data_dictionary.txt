@@ -1,90 +1,35 @@
-STUDENT PERFORMANCE AND DROPOUT-RISK PREDICTION SYSTEM
+STUDENT PERFORMANCE AND ACADEMIC-RISK CLASSIFICATION
 DATA DICTIONARY AND VALIDATION RULES
 
-1. DATA DICTIONARY
+SOURCE FIELDS
+school: Student's school (categorical).
+sex: Sex field as supplied by the source dataset (categorical).
+age: Student age (numeric).
+studytime: Weekly study-time category (numeric code).
+failures: Number of previous class failures (numeric).
+absences: Number of school absences (numeric).
+G1: First-period grade (0-20).
+G2: Second-period grade (0-20).
+G3: Final grade (0-20).
 
-school
-Meaning: Student's school.
-Type: Categorical
+DERIVED FIELDS
+average_marks: (G1 + G2 + G3) / 3.
+risk_level: Project-defined academic-risk category (High, Medium or Low).
 
-sex
-Meaning: Student's gender.
-Type: Categorical
+VALIDATION
+- Required numeric fields G1, G2, G3 and absences must be numeric.
+- G1, G2 and G3 must be between 0 and 20 inclusive.
+- Absences must be non-negative.
+- Duplicate rows are removed.
+- Rows with missing/non-numeric required values or invalid grade/absence values are rejected.
+- Rejected rows are saved to data/errors/rejected_records.csv.
 
-age
-Meaning: Age of the student.
-Type: Numeric
+RISK RULES (evaluated in order)
+High: G3 < 10 OR absences > 15.
+Medium: if not High, G3 < 14 OR absences > 10.
+Low: all remaining records.
 
-studytime
-Meaning: Weekly study time.
-Type: Numeric
-
-failures
-Meaning: Number of previous class failures.
-Type: Numeric
-
-absences
-Meaning: Number of school absences.
-Type: Numeric
-
-G1
-Meaning: First-period grade.
-Type: Numeric
-Valid range: 0 to 20
-
-G2
-Meaning: Second-period grade.
-Type: Numeric
-Valid range: 0 to 20
-
-G3
-Meaning: Final grade.
-Type: Numeric
-Valid range: 0 to 20
-
-average_marks
-Meaning: Average of G1, G2 and G3.
-Type: Numeric
-Calculation: (G1 + G2 + G3) / 3
-
-risk_level
-Meaning: Academic risk indicator.
-Type: Categorical
-Values: High, Medium, Low
-
-
-2. DATA VALIDATION RULES
-
-1. Check for missing values.
-2. Remove duplicate records.
-3. Check that G1, G2 and G3 are between 0 and 20.
-4. Invalid mark records are stored in the rejected-record/error log.
-5. Invalid mark records are removed from the cleaned dataset.
-6. Calculate average marks from G1, G2 and G3.
-7. Assign an academic risk level using final marks and absences.
-8. Save the validated data as the cleaned dataset.
-
-
-3. RISK LEVEL RULES
-
-High Risk:
-G3 < 10 OR absences > 15
-
-Medium Risk:
-G3 < 14 OR absences > 10
-
-Low Risk:
-All other students
-
-
-4. IMPORTANT DATASET LIMITATION
-
-The selected UCI Student Performance dataset does not contain
-actual attendance percentage or assignment completion data.
-
-Therefore, the project uses the available "absences" field as an
-academic-risk indicator rather than claiming it is an attendance
-percentage.
-
-The risk_level is an academic-risk indicator and is not a confirmed
-dropout prediction.
+IMPORTANT LIMITATION
+The UCI Student Performance dataset does not contain verified dropout outcomes.
+risk_level is derived from academic performance and absences. It is an
+academic-risk indicator, not a confirmed dropout label.

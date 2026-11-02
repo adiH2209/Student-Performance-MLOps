@@ -1,12 +1,23 @@
 FROM python:3.11-slim
 
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-COPY api.py .
-COPY monitoring monitoring
-COPY ml/model/student_risk_model.pkl ml/model/student_risk_model.pkl
+RUN pip install --no-cache-dir \
+    fastapi \
+    "uvicorn[standard]" \
+    pandas \
+    pydantic \
+    joblib \
+    scikit-learn \
+    xgboost \
+    scipy
 
-RUN pip install --no-cache-dir fastapi uvicorn pandas scikit-learn joblib xgboost
+COPY api.py .
+COPY monitoring/ monitoring/
+COPY ml/model/student_risk_model.pkl ml/model/student_risk_model.pkl
 
 EXPOSE 8000
 

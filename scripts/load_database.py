@@ -1,46 +1,21 @@
-import pandas as pd
+from pathlib import Path
 import sqlite3
-import os
+import pandas as pd
 
-# Find the main project folder
-project_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = Path(__file__).resolve().parents[1]
+INPUT_FILE = ROOT / "data" / "cleaned" / "student_cleaned.csv"
+DB_DIR = ROOT / "database"
+DB_FILE = DB_DIR / "students.db"
 
-# File locations
-input_file = os.path.join(
-    project_folder,
-    "data",
-    "cleaned",
-    "student_cleaned.csv"
-)
+def main():
+    if not INPUT_FILE.exists():
+        raise FileNotFoundError("Cleaned data not found. Run scripts/pipeline.py first.")
+    DB_DIR.mkdir(parents=True, exist_ok=True)
+    df = pd.read_csv(INPUT_FILE)
+    with sqlite3.connect(DB_FILE) as conn:
+        df.to_sql("students", conn, if_exists="replace", index=False)
+        count = conn.execute("SELECT COUNT(*) FROM students").fetchone()[0]
+    print(f"Loaded {count} records into {DB_FILE.relative_to(ROOT)} (table: students).")
 
-database_folder = os.path.join(project_folder, "database")
-
-# Create database folder
-os.makedirs(database_folder, exist_ok=True)
-
-# Database file
-database_file = os.path.join(database_folder, "students.db")
-
-# Read cleaned data
-df = pd.read_csv(input_file)
-
-# Connect to SQLite database
-connection = sqlite3.connect(database_file)
-
-# Load data into database
-df.to_sql("students", connection, if_exists="replace", index=False)
-
-# Check number of records
-cursor = connection.cursor()
-cursor.execute("SELECT COUNT(*) FROM students")
-count = cursor.fetchone()[0]
-
-connection.close()
-
-print("================================")
-print("DATABASE LOADING")
-print("================================")
-print("Database:", database_file)
-print("Table: students")
-print("Records loaded:", count)
-print("Status: SUCCESS")
+if __name__ == "__main__":
+    main()

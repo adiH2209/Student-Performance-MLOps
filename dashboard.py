@@ -1,245 +1,75 @@
-import psycopg2
-import streamlit as st
+from pathlib import Path
+import sqlite3
 import pandas as pd
-import os
+import streamlit as st
 import plotly.express as px
-# Project folder
-project_folder = os.path.dirname(os.path.abspath(__file__))
 
-# Database location
-database_file = os.path.join(
-    project_folder,
-    "database",
-    "students.db"
-)
+ROOT = Path(__file__).resolve().parent
+DB_FILE = ROOT / "database" / "students.db"
 
-# Connect to database
-connection = psycopg2.connect(
-    host="172.31.112.1",
-    database="student_performance",
-    user="postgres",
-    password="aditya@22",
-    port=5432
-)
-
-# Read student data
-df = pd.read_sql_query(
-    "SELECT * FROM students",
-    connection
-)
-
-connection.close()
-
-# Page settings
-st.set_page_config(
-    page_title="Student Performance Dashboard",
-    page_icon="🎓",
-    layout="wide"
-)
-
-# Title
+st.set_page_config(page_title="Student Performance Dashboard", page_icon="🎓", layout="wide")
 st.title("🎓 Student Performance & Academic Risk Dashboard")
+st.caption("Academic-risk indicators are rule-derived and are not verified dropout outcomes.")
 
-st.write(
-    "This dashboard analyzes student academic performance "
-    "and identifies students who may require academic attention."
-)
+@st.cache_data
+def load_students(db_path, modified_time):
+    with sqlite3.connect(db_path) as connection:
+        return pd.read_sql_query("SELECT * FROM students", connection)
 
-# Key calculations
-total_students = len(df)
-average_marks = df["average_marks"].mean()
-high_risk = len(df[df["risk_level"] == "High"])
-average_absences = df["absences"].mean()
+if not DB_FILE.exists():
+    st.error("Database not found. Run `python scripts/pipeline.py` from the project root first.")
+    st.stop()
 
-# Dashboard numbers
-col1, col2, col3, col4 = st.columns(4)
+try:
+    df = load_students(str(DB_FILE), DB_FILE.stat().st_mtime)
+except Exception as exc:
+    st.error(f"Could not read the SQLite database: {exc}")
+    st.stop()
 
-col1.metric("Total Students", total_students)
-col2.metric("Average Marks", round(average_marks, 2))
-col3.metric("High Risk Students", high_risk)
-col4.metric("Average Absences", round(average_absences, 1))
+if df.empty:
+    st.warning("The students table is empty. Run the ETL pipeline.")
+    st.stop()
 
-# Risk distribution
-# Risk distribution
-st.subheader("📊 Academic Risk Distribution")
+required = {"average_marks", "risk_level", "absences", "G3", "age", "school"}
+missing = required.difference(df.columns)
+if missing:
+    st.error(f"Database table is missing columns: {sorted(missing)}")
+    st.stop()
 
-risk_counts = (
-    df["risk_level"]
-    .value_counts()
-    .reindex(["High", "Medium", "Low"])
-    .reset_index()
-)
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Total Students", len(df))
+c2.metric("Average Marks", f"{df['average_marks'].mean():.2f}")
+c3.metric("High Academic Risk", int((df["risk_level"] == "High").sum()))
+c4.metric("Average Absences", f"{df['absences'].mean():.1f}")
 
-risk_counts.columns = ["risk_level", "count"]
+st.subheader("Academic Risk Distribution")
+risk_order = ["High", "Medium", "Low"]
+risk_counts = df["risk_level"].value_counts().reindex(risk_order, fill_value=0).rename_axis("Risk Level").reset_index(name="Students")
+st.plotly_chart(px.bar(risk_counts, x="Risk Level", y="Students", color="Risk Level", text="Students"), use_container_width=True)
 
-fig1 = px.bar(
-    risk_counts,
-    x="risk_level",
-    y="count",
-    color="risk_level",
-    color_discrete_map={
-        "High": "#E74C3C",
-        "Medium": "#F39C12",
-        "Low": "#2ECC71"
-    },
-    text="count",
-    labels={
-        "risk_level": "Risk Level",
-        "count": "Number of Students"
-    }
-)
+risk_filter = st.selectbox("Filter by risk category", ["All Students"] + risk_order)
+view = df if risk_filter == "All Students" else df[df["risk_level"] == risk_filter]
+st.caption(f"Showing {len(view)} of {len(df)} records.")
 
-fig1.update_traces(
-    textposition="outside",
-    marker_line_width=1.5
-)
+left, right = st.columns(2)
+with left:
+    st.subheader("Absences vs Final Grade")
+    st.plotly_chart(px.scatter(view, x="absences", y="G3", color="risk_level", labels={"G3": "Final grade"}), use_container_width=True)
+with right:
+    st.subheader("Average Marks by Risk")
+    avg_risk = view.groupby("risk_level", as_index=False)["average_marks"].mean()
+    st.plotly_chart(px.bar(avg_risk, x="risk_level", y="average_marks", color="risk_level"), use_container_width=True)
 
-fig1.update_layout(
-    title="Students by Academic Risk Level",
-    title_x=0.5,
-    showlegend=False,
-    plot_bgcolor="rgba(0,0,0,0)",
-    paper_bgcolor="rgba(0,0,0,0)",
-    yaxis=dict(
-        title="Number of Students",
-        gridcolor="rgba(128,128,128,0.2)"
-    ),
-    xaxis=dict(
-        title="Risk Level"
-    ),
-    margin=dict(t=70, l=40, r=40, b=40)
-)
+left, right = st.columns(2)
+with left:
+    st.subheader("Final Grade by Age")
+    age_avg = view.groupby("age", as_index=False)["G3"].mean()
+    st.plotly_chart(px.bar(age_avg, x="age", y="G3", labels={"G3": "Average final grade"}), use_container_width=True)
+with right:
+    st.subheader("Final Grade by School")
+    school_avg = view.groupby("school", as_index=False)["G3"].mean()
+    st.plotly_chart(px.bar(school_avg, x="school", y="G3", color="school"), use_container_width=True)
 
-st.plotly_chart(fig1, use_container_width=True)
-# Risk filter
-st.subheader("🔎 Filter Students by Risk")
-
-risk_option = st.selectbox(
-    "Select Risk Level",
-    ["All Students", "High", "Medium", "Low"]
-)
-
-if risk_option == "All Students":
-    filtered_df = df
-else:
-    filtered_df = df[df["risk_level"] == risk_option]
-
-st.write("Students shown:", len(filtered_df))
-
-# Absences vs marks
-st.subheader("📈 Absences vs Final Marks")
-
-chart_data = df[["absences", "g3"]].copy()
-
-chart_data = chart_data.rename(
-    columns={"g3": "Final Marks"}
-)
-
-st.scatter_chart(
-    chart_data,
-    x="absences",
-    y="Final Marks"
-)
-
-# Student table
-st.subheader("⚠️ Student Risk Details")
-# Graph 3 - Average Marks by Risk Level
-st.subheader("📊 Average Marks by Risk Level")
-
-risk_avg = (
-    filtered_df.groupby("risk_level")["average_marks"]
-    .mean()
-    .reset_index()
-)
-
-fig3 = px.bar(
-    risk_avg,
-    x="risk_level",
-    y="average_marks",
-    color="risk_level",
-    color_discrete_map={
-        "High": "#E74C3C",
-        "Medium": "#F39C12",
-        "Low": "#2ECC71"
-    },
-    labels={
-        "risk_level": "Risk Level",
-        "average_marks": "Average Marks"
-    }
-)
-
-st.plotly_chart(fig3, use_container_width=True)
-
-
-# Graph 4 - Average Marks by Study Time
-# Graph 4 - Average Marks by Age
-st.subheader("👥 Average Marks by Age")
-
-age_avg = (
-    filtered_df.groupby("age")["g3"]
-    .mean()
-    .reset_index()
-)
-
-fig4 = px.bar(
-    age_avg,
-    x="age",
-    y="g3",
-    color="age",
-    labels={
-        "age": "Age",
-        "g3": "Average Final Marks"
-    }
-)
-
-st.plotly_chart(fig4, use_container_width=True)
-# Graph 5 - Average Marks by School
-st.subheader("🏫 Average Marks by School")
-
-school_avg = (
-    filtered_df.groupby("school")["g3"]
-    .mean()
-    .reset_index()
-)
-
-fig5 = px.bar(
-    school_avg,
-    x="school",
-    y="g3",
-    color="school",
-    labels={
-        "school": "School",
-        "g3": "Average Final Marks"
-    }
-)
-
-st.plotly_chart(fig5, use_container_width=True)
-
-risk_students = filtered_df[
-    [
-        "school",
-        "sex",
-        "age",
-        "absences",
-        "g1",
-        "g2",
-        "g3",
-        "average_marks",
-        "risk_level"
-    ]
-]
-
-risk_students = risk_students.sort_values(
-    by="average_marks"
-)
-
-st.dataframe(
-    risk_students,
-    use_container_width=True
-)
-
-# Note
-st.info(
-    "Risk level is calculated using final marks and absences. "
-    "It is an academic-risk indicator and not a confirmed dropout prediction."
-)
+st.subheader("Student Academic Risk Details")
+display_cols = [c for c in ["school", "sex", "age", "absences", "G1", "G2", "G3", "average_marks", "risk_level"] if c in view.columns]
+st.dataframe(view[display_cols].sort_values("average_marks"), use_container_width=True, hide_index=True)

@@ -1,60 +1,23 @@
-import pandas as pd
+from pathlib import Path
 import sqlite3
-import os
+import pandas as pd
 
-# Find project folder
-project_folder = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
-)
+ROOT = Path(__file__).resolve().parents[1]
+DB_FILE = ROOT / "database" / "students.db"
+COLUMNS = ["school", "age", "absences", "G1", "G2", "G3", "average_marks", "risk_level"]
 
-# Database path
-database_file = os.path.join(
-    project_folder,
-    "database",
-    "students.db"
-)
+def main():
+    if not DB_FILE.exists():
+        raise FileNotFoundError("SQLite database not found. Run scripts/load_database.py first.")
+    with sqlite3.connect(DB_FILE) as conn:
+        available = {row[1] for row in conn.execute("PRAGMA table_info(students)")}
+        missing = set(COLUMNS).difference(available)
+        if missing:
+            raise ValueError(f"students table is missing columns: {sorted(missing)}")
+        df = pd.read_sql_query(f"SELECT {', '.join(COLUMNS)} FROM students", conn)
+        df.to_sql("student_performance_summary", conn, if_exists="replace", index=False)
+        count = conn.execute("SELECT COUNT(*) FROM student_performance_summary").fetchone()[0]
+    print(f"Created student_performance_summary with {count} records.")
 
-# Connect to database
-connection = sqlite3.connect(database_file)
-
-# Read required data
-df = pd.read_sql_query(
-    """
-    SELECT
-        school,
-        age,
-        absences,
-        G1,
-        G2,
-        G3,
-        average_marks,
-        risk_level
-    FROM students
-    """,
-    connection
-)
-
-# Create analytical table
-df.to_sql(
-    "student_performance_summary",
-    connection,
-    if_exists="replace",
-    index=False
-)
-
-# Check table
-cursor = connection.cursor()
-cursor.execute(
-    "SELECT COUNT(*) FROM student_performance_summary"
-)
-
-count = cursor.fetchone()[0]
-
-connection.close()
-
-print("================================")
-print("ANALYTICAL TABLE CREATION")
-print("================================")
-print("Table: student_performance_summary")
-print("Records:", count)
-print("Status: SUCCESS")
+if __name__ == "__main__":
+    main()

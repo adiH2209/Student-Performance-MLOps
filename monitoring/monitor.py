@@ -1,169 +1,63 @@
-import pandas as pd
-import joblib
 from pathlib import Path
+import pandas as pd
 from scipy.stats import ks_2samp
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-LOG_FILE = Path("monitoring/predictions.csv")
-DATA_FILE = Path("data/cleaned/student_cleaned.csv")
-MODEL_FILE = Path("ml/model/student_risk_model.pkl")
+ROOT = Path(__file__).resolve().parents[1]
+LOG_FILE = ROOT / "monitoring" / "predictions.csv"
+DATA_FILE = ROOT / "data" / "cleaned" / "student_cleaned.csv"
+FEATURES = ["age", "studytime", "failures", "absences", "G1", "G2"]
 
-FEATURES = [
-    "age",
-    "studytime",
-    "failures",
-    "absences",
-    "G1",
-    "G2",
-
-
-]
-risk_mapping = {
-    0: "High",
-    1: "Low",
-    2: "Medium"
-}
-def log_prediction(data, prediction):
-    row = data.copy()
+def log_prediction(data, prediction, latency_ms=None):
+    row = dict(data)
     row["predicted_risk"] = prediction
-
-    df = pd.DataFrame([row])
-
-    if LOG_FILE.exists():
-        df.to_csv(LOG_FILE, mode="a", header=False, index=False)
-    else:
-        df.to_csv(LOG_FILE, index=False)
+    row["latency_ms"] = latency_ms
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame([row]).to_csv(
+        LOG_FILE, mode="a", header=not LOG_FILE.exists(), index=False
+    )
 
 def monitor_predictions():
+    print("=" * 48)
+    print("STUDENT ACADEMIC RISK MONITORING")
+    print("=" * 48)
+    if not DATA_FILE.exists():
+        raise FileNotFoundError("Cleaned data missing. Run scripts/pipeline.py first.")
+    reference = pd.read_csv(DATA_FILE)
+    print("\n1. REFERENCE DATA QUALITY")
+    print("Records:", len(reference))
+    print("Missing feature values:", int(reference[FEATURES].isna().sum().sum()))
+    print("Duplicate records:", int(reference.duplicated().sum()))
+    invalid = sum(int(((reference[c] < 0) | (reference[c] > 20)).sum()) for c in ["G1", "G2"])
+    print("Invalid G1/G2 values:", invalid)
 
-    print("\n==============================")
-    print("     MLOps Model Monitoring")
-    print("==============================")
-
-    # -----------------------------
-    # 1. Input Data Quality
-    # -----------------------------
-    data = pd.read_csv(DATA_FILE)
-
-    print("\n1. INPUT DATA QUALITY")
-    print("------------------------------")
-    print("Total records:", len(data))
-    print("Missing values:", int(data[FEATURES].isnull().sum().sum()))
-    print("Duplicate records:", int(data.duplicated().sum()))
-
-    invalid_values = 0
-
-    for column in ["G1", "G2"]:
-        invalid_values += int(((data[column] < 0) | (data[column] > 20)).sum())
-
-    print("Invalid mark values:", invalid_values)
-
-    # -----------------------------
-    # 2. Prediction Monitoring
-    # -----------------------------
     if not LOG_FILE.exists():
-        print("\nNo prediction log available.")
+        print("\nNo prediction log found. Make API predictions to create one.")
         return
-
     predictions = pd.read_csv(LOG_FILE)
+    print("\n2. PREDICTION SUMMARY")
+    print("Logged predictions:", len(predictions))
+    if "predicted_risk" in predictions:
+        print(predictions["predicted_risk"].value_counts(dropna=False).to_string())
+    if "latency_ms" in predictions and predictions["latency_ms"].notna().any():
+        print("Mean API latency (ms):", round(predictions["latency_ms"].mean(), 2))
 
-    print("\n2. PREDICTION MONITORING")
-    print("------------------------------")
-    print("Total predictions:", len(predictions))
-
-    print("\nPrediction class distribution:")
-    print(predictions["predicted_risk"].value_counts())
-
-    # -----------------------------
-    # 3. Feature Drift
-    # -----------------------------
-    print("\n3. FEATURE DRIFT")
-    print("------------------------------")
-
-    if len(predictions) >= 2:
-
-        drift_found = False
-
-        for feature in FEATURES:
-
-            if feature not in predictions.columns:
-                continue
-
-            statistic, p_value = ks_2samp(
-                data[feature].dropna(),
-                predictions[feature].dropna()
-            )
-
-            if p_value < 0.05:
-                print(
-                    feature,
-                    "-> DRIFT DETECTED",
-                    "(p-value:",
-                    round(p_value, 4),
-                    ")"
-                )
-                drift_found = True
-            else:
-                print(
-                    feature,
-                    "-> No significant drift",
-                    "(p-value:",
-                    round(p_value, 4),
-                    ")"
-                )
-
-        if not drift_found:
-            print("Overall result: No significant feature drift detected.")
-
-    else:
-        print("Need at least 2 predictions to calculate drift.")
-
-    # -----------------------------
-    # 4. Model Performance
-    # -----------------------------
-    print("\n4. MODEL PERFORMANCE")
-    print("------------------------------")
-
-    model = joblib.load(MODEL_FILE)
-
-    X = data[FEATURES]
-    y = data["risk_level"]
-
-    y_pred = model.predict(X)
-
-    y_pred = [risk_mapping[int(pred)] for pred in y_pred]
-
-    accuracy = accuracy_score(y, y_pred)
-    precision = precision_score(
-        y, y_pred, average="weighted", zero_division=0
-    )
-    recall = recall_score(
-        y, y_pred, average="weighted", zero_division=0
-    )
-    f1 = f1_score(
-        y, y_pred, average="weighted", zero_division=0
-    )
-
-    print("Accuracy :", round(accuracy, 4))
-    print("Precision:", round(precision, 4))
-    print("Recall   :", round(recall, 4))
-    print("F1 Score :", round(f1, 4))
-
-    # -----------------------------
-    # 5. Retraining Recommendation
-    # -----------------------------
-    print("\n5. RETRAINING CRITERIA")
-    print("------------------------------")
-
-    if accuracy < 0.80:
-        print("RETRAINING RECOMMENDED: Accuracy below 80%.")
-    else:
-        print("Model performance is acceptable.")
-
-    print("\n==============================")
-    print("Monitoring completed.")
-    print("==============================")
-
+    print("\n3. FEATURE DISTRIBUTION CHECK (two-sample KS test)")
+    if len(predictions) < 2:
+        print("At least two logged predictions are required.")
+        return
+    for feature in FEATURES:
+        if feature not in predictions:
+            continue
+        ref = pd.to_numeric(reference[feature], errors="coerce").dropna()
+        current = pd.to_numeric(predictions[feature], errors="coerce").dropna()
+        if len(current) < 2 or ref.empty:
+            print(f"{feature}: insufficient numeric values")
+            continue
+        _, p_value = ks_2samp(ref, current)
+        status = "POTENTIAL DISTRIBUTION SHIFT" if p_value < 0.05 else "No significant shift detected"
+        print(f"{feature}: {status} (p={p_value:.4f})")
+    print("\nNote: a feature-distribution test is not a measure of model accuracy.")
+    print("True production performance requires ground-truth outcomes for predictions.")
 
 if __name__ == "__main__":
     monitor_predictions()

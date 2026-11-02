@@ -1,84 +1,26 @@
-import pandas as pd
-import joblib
+import os
+import sys
 import mlflow
-import mlflow.sklearn
+import mlflow.xgboost
+from pathlib import Path
 
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from ml.model_utils import train_and_evaluate, save_bundle
 
+def main():
+    bundle, metrics = train_and_evaluate()
+    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000"))
+    mlflow.set_experiment("Student Academic Risk Classification")
+    with mlflow.start_run(run_name="XGBoost-Retraining"):
+        mlflow.log_params({"model": "XGBoost", "n_estimators": 100, "max_depth": 4, "learning_rate": 0.1})
+        for key, value in metrics.items():
+            mlflow.log_metric(key, value)
+        mlflow.xgboost.log_model(bundle["model"], name="model")
+    path = save_bundle(bundle)
+    print("Retraining completed.")
+    print("Metrics:", metrics)
+    print("Updated model bundle:", path)
 
-DATA_PATH = "data/cleaned/student_cleaned.csv"
-MODEL_PATH = "ml/model/student_risk_model.pkl"
-
-
-# Load data
-df = pd.read_csv(DATA_PATH)
-
-# Features used for prediction
-features = [
-    "age",
-    "studytime",
-    "failures",
-    "absences",
-    "G1",
-    "G2"
-]
-
-X = df[features]
-y = df["risk_level"]
-
-
-# Split data
-X_train, X_test, y_train, y_test = train_test_split(
-    X,
-    y,
-    test_size=0.2,
-    random_state=42,
-    stratify=y
-)
-
-
-# Create model
-model = RandomForestClassifier(
-    n_estimators=100,
-    random_state=42
-)
-
-
-# Train
-model.fit(X_train, y_train)
-
-
-# Evaluate
-y_pred = model.predict(X_test)
-accuracy = accuracy_score(y_test, y_pred)
-
-print("Retraining completed.")
-print("Accuracy:", accuracy)
-print("\nClassification Report:")
-print(classification_report(y_test, y_pred))
-
-
-# MLflow
-mlflow.set_tracking_uri("http://localhost:5000")
-mlflow.set_experiment("Student Risk Prediction")
-
-with mlflow.start_run(run_name="Retraining"):
-    mlflow.log_param("model", "Random Forest")
-    mlflow.log_param("n_estimators", 100)
-    mlflow.log_param("test_size", 0.2)
-
-    mlflow.log_metric("accuracy", accuracy)
-
-    mlflow.sklearn.log_model(
-        model,
-        name="student_risk_model"
-    )
-
-
-# Save updated model
-joblib.dump(model, MODEL_PATH)
-
-print("\nUpdated model saved to:", MODEL_PATH)
-print("Retraining and MLflow logging completed successfully.")
+if __name__ == "__main__":
+    main()

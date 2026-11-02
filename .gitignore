@@ -1,18 +1,33 @@
-airflow_venv/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
 
-mlruns/
-mlflow.db
-
+# Generated data
+data/student-mat.csv
 data/raw/
 data/staging/
 data/errors/
 
-*.log
-.env
+# Local database
+database/*.db
+database/*.sqlite*
 
-database/students.db
+# Model artifacts (DVC pointer files remain tracked)
+ml/model/*.pkl
+!ml/model/*.pkl.dvc
+
+# MLflow and prediction logs
+mlruns/
 mlartifacts/
+mlflow.db
 monitoring/predictions.csv
-monitoring/predictions.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
